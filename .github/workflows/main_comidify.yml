@@ -45,6 +45,9 @@ jobs:
         with:
           name: .net-app
 
+      - name: List files
+        run: dir ./.net-app
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -60,4 +63,5 @@ jobs:
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: ./.net-app
+
 
