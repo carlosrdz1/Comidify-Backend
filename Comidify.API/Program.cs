@@ -3,6 +3,8 @@ using Comidify.API.Data;
 using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Logging.ClearProviders(); 
+builder.Logging.AddConsole();
 
 // Configurar Kestrel para usar IPv4
 builder.WebHost.ConfigureKestrel(options =>
