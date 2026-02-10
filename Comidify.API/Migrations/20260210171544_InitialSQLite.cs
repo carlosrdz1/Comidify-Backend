@@ -1,13 +1,12 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
 namespace Comidify.API.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class InitialSQLite : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -16,11 +15,11 @@ namespace Comidify.API.Migrations
                 name: "Comidas",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Nombre = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    TipoComida = table.Column<int>(type: "integer", nullable: false),
-                    FechaCreacion = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Nombre = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    TipoComida = table.Column<int>(type: "INTEGER", nullable: false),
+                    FechaCreacion = table.Column<DateTime>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -31,10 +30,10 @@ namespace Comidify.API.Migrations
                 name: "Ingredientes",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Nombre = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    FechaCreacion = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Nombre = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    FechaCreacion = table.Column<DateTime>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -45,10 +44,10 @@ namespace Comidify.API.Migrations
                 name: "MenusSemanales",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Nombre = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    FechaCreacion = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Nombre = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    FechaCreacion = table.Column<DateTime>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -59,12 +58,12 @@ namespace Comidify.API.Migrations
                 name: "ComidaIngredientes",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    ComidaId = table.Column<int>(type: "integer", nullable: false),
-                    IngredienteId = table.Column<int>(type: "integer", nullable: false),
-                    Cantidad = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
-                    Unidad = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    ComidaId = table.Column<int>(type: "INTEGER", nullable: false),
+                    IngredienteId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Cantidad = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true),
+                    Unidad = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -87,12 +86,12 @@ namespace Comidify.API.Migrations
                 name: "MenuComidas",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    MenuSemanalId = table.Column<int>(type: "integer", nullable: false),
-                    ComidaId = table.Column<int>(type: "integer", nullable: false),
-                    DiaSemana = table.Column<int>(type: "integer", nullable: false),
-                    TipoComida = table.Column<int>(type: "integer", nullable: false)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    MenuSemanalId = table.Column<int>(type: "INTEGER", nullable: false),
+                    ComidaId = table.Column<int>(type: "INTEGER", nullable: false),
+                    DiaSemana = table.Column<int>(type: "INTEGER", nullable: false),
+                    TipoComida = table.Column<int>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {

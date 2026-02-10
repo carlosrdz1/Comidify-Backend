@@ -1,25 +1,40 @@
 using Microsoft.EntityFrameworkCore;
 using Comidify.API.Data;
-using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
+var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 
-// Configurar Kestrel para usar IPv4
-builder.WebHost.ConfigureKestrel(options =>
+// Configurar puertos
+if (builder.Environment.IsDevelopment())
 {
-    options.Listen(IPAddress.Any, 5000); // HTTP en puerto 5000
-    options.Listen(IPAddress.Any, 5001, listenOptions =>
-    {
-        listenOptions.UseHttps(); // HTTPS en puerto 5001
-    });
-});
+    // En desarrollo local: usar puertos estándar
+    builder.WebHost.UseUrls("http://localhost:5000", "https://localhost:5001");
+}
+else
+{
+    // En producción (Azure): usar variable de entorno PORT
+    
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
 
-// Add services to the container.
+// Determinar ruta de la base de datos
+var dbPath = Path.Combine(
+    Environment.GetEnvironmentVariable("HOME") ?? Environment.CurrentDirectory,
+    "data",
+    "comidify.db"
+);
+
+// Crear directorio si no existe
+Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
+
+Console.WriteLine($"Base de datos SQLite en: {dbPath}");
+
+// Add services to the container
 builder.Services.AddControllers();
 
-// Configurar DbContext con PostgreSQL
+// Configurar DbContext con SQLite
 builder.Services.AddDbContext<ComidifyDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlite($"Data Source={dbPath}"));
 
 // Configurar CORS
 builder.Services.AddCors(options =>
@@ -33,25 +48,34 @@ builder.Services.AddCors(options =>
         });
 });
 
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Aplicar migraciones automáticamente
+using (var scope = app.Services.CreateScope())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    var db = scope.ServiceProvider.GetRequiredService<ComidifyDbContext>();
+    try
+    {
+        db.Database.Migrate();
+        Console.WriteLine("Base de datos inicializada correctamente");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error al inicializar base de datos: {ex.Message}");
+    }
 }
 
-app.UseHttpsRedirection();
+// Swagger siempre disponible
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseCors("AllowAll");
-
 app.UseAuthorization();
-
 app.MapControllers();
+
+Console.WriteLine($"Backend corriendo en puerto {port}");
 
 app.Run();
