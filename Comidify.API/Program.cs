@@ -2,7 +2,12 @@ using Microsoft.EntityFrameworkCore;
 using Comidify.API.Data;
 
 var builder = WebApplication.CreateBuilder(args);
+
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+
+builder.Logging.ClearProviders(); 
+builder.Logging.AddConsole();
+
 
 // Configurar puertos
 if (builder.Environment.IsDevelopment())
@@ -68,6 +73,12 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+// Configure the HTTP request pipeline.
+app.UseSwagger();
+app.UseSwaggerUI();
+
+
+
 // Swagger siempre disponible
 app.UseSwagger();
 app.UseSwaggerUI();
@@ -76,6 +87,11 @@ app.UseCors("AllowAll");
 app.UseAuthorization();
 app.MapControllers();
 
+
 Console.WriteLine($"Backend corriendo en puerto {port}");
+
+app.Run();
+
+app.MapGet("/ping", () => "pong");
 
 app.Run();
