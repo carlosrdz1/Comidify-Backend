@@ -136,7 +136,7 @@ builder.Services.AddSwaggerGen(c =>
         In = ParameterLocation.Header,
         Description = "Pega SOLO el token (sin 'Bearer')."
     });
-    
+    // Carlos
     c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
     {
         {
