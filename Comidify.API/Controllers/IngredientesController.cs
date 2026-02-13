@@ -1,147 +1,159 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Comidify.API.Data;
 using Comidify.API.Models;
 using Comidify.API.DTOs;
+using Comidify.API.Extensions;
 
-namespace Comidify.API.Controllers
+namespace Comidify.API.Controllers;
+
+[Authorize]
+[ApiController]
+[Route("api/[controller]")]
+public class IngredientesController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class IngredientesController : ControllerBase
+    private readonly ComidifyDbContext _context;
+
+    public IngredientesController(ComidifyDbContext context)
     {
-        private readonly ComidifyDbContext _context;
+        _context = context;
+    }
 
-        public IngredientesController(ComidifyDbContext context)
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<IngredienteDto>>> GetIngredientes([FromQuery] string? nombre)
+    {
+        var userId = User.GetUserId();
+
+        var query = _context.Ingredientes
+            .Where(i => i.UsuarioId == userId)
+            .AsQueryable();
+
+        if (!string.IsNullOrEmpty(nombre))
         {
-            _context = context;
+            query = query.Where(i => i.Nombre.Contains(nombre));
         }
 
-        // GET: api/Ingredientes
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<IngredienteDto>>> GetIngredientes(
-            [FromQuery] string? nombre = null)
+        var ingredientes = await query.ToListAsync();
+
+        var ingredientesDto = ingredientes.Select(i => new IngredienteDto
         {
-            var query = _context.Ingredientes.AsQueryable();
+            Id = i.Id,
+            Nombre = i.Nombre
+        }).ToList();
 
-            if (!string.IsNullOrWhiteSpace(nombre))
-            {
-                query = query.Where(i => i.Nombre.ToLower().Contains(nombre.ToLower()));
-            }
+        return Ok(ingredientesDto);
+    }
 
-            var ingredientes = await query
-                .OrderBy(i => i.Nombre)
-                .ToListAsync();
+    [HttpGet("{id}")]
+    public async Task<ActionResult<IngredienteDto>> GetIngrediente(int id)
+    {
+        var userId = User.GetUserId();
 
-            var result = ingredientes.Select(i => new IngredienteDto
-            {
-                Id = i.Id,
-                Nombre = i.Nombre
-            }).ToList();
+        var ingrediente = await _context.Ingredientes
+            .Where(i => i.UsuarioId == userId)
+            .FirstOrDefaultAsync(i => i.Id == id);
 
-            return Ok(result);
+        if (ingrediente == null)
+        {
+            return NotFound();
         }
 
-        // GET: api/Ingredientes/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<IngredienteDto>> GetIngrediente(int id)
+        return Ok(new IngredienteDto { Id = ingrediente.Id, Nombre = ingrediente.Nombre });
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<IngredienteDto>> CreateIngrediente(CreateIngredienteDto dto)
+    {
+        var userId = User.GetUserId();
+
+        var ingrediente = new Ingrediente
         {
-            var ingrediente = await _context.Ingredientes.FindAsync(id);
+            Nombre = dto.Nombre,
+            UsuarioId = userId
+        };
 
-            if (ingrediente == null)
-            {
-                return NotFound();
-            }
+        _context.Ingredientes.Add(ingrediente);
+        await _context.SaveChangesAsync();
 
-            var result = new IngredienteDto
-            {
-                Id = ingrediente.Id,
-                Nombre = ingrediente.Nombre
-            };
+        var ingredienteDto = new IngredienteDto
+        {
+            Id = ingrediente.Id,
+            Nombre = ingrediente.Nombre
+        };
 
-            return Ok(result);
+        return CreatedAtAction(nameof(GetIngrediente), new { id = ingrediente.Id }, ingredienteDto);
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateIngrediente(int id, CreateIngredienteDto dto)
+    {
+        var userId = User.GetUserId();
+
+        var ingrediente = await _context.Ingredientes
+            .Where(i => i.UsuarioId == userId)
+            .FirstOrDefaultAsync(i => i.Id == id);
+
+        if (ingrediente == null)
+        {
+            return NotFound();
         }
 
-        // POST: api/Ingredientes
-        [HttpPost]
-        public async Task<ActionResult<IngredienteDto>> CreateIngrediente(CreateIngredienteDto dto)
+        ingrediente.Nombre = dto.Nombre;
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteIngrediente(int id)
+    {
+        var userId = User.GetUserId();
+
+        var ingrediente = await _context.Ingredientes
+            .Where(i => i.UsuarioId == userId)
+            .FirstOrDefaultAsync(i => i.Id == id);
+
+        if (ingrediente == null)
         {
-            // Verificar si ya existe un ingrediente con el mismo nombre
-            var existente = await _context.Ingredientes
-                .FirstOrDefaultAsync(i => i.Nombre.ToLower() == dto.Nombre.ToLower());
-
-            if (existente != null)
-            {
-                return Conflict(new { message = "Ya existe un ingrediente con ese nombre" });
-            }
-
-            var ingrediente = new Ingrediente
-            {
-                Nombre = dto.Nombre,
-                FechaCreacion = DateTime.UtcNow
-            };
-
-            _context.Ingredientes.Add(ingrediente);
-            await _context.SaveChangesAsync();
-
-            var result = new IngredienteDto
-            {
-                Id = ingrediente.Id,
-                Nombre = ingrediente.Nombre
-            };
-
-            return CreatedAtAction(nameof(GetIngrediente), new { id = result.Id }, result);
+            return NotFound();
         }
 
-        // PUT: api/Ingredientes/5
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateIngrediente(int id, UpdateIngredienteDto dto)
+        var enUso = await _context.ComidaIngredientes.AnyAsync(ci => ci.IngredienteId == id);
+
+        if (enUso)
         {
-            var ingrediente = await _context.Ingredientes.FindAsync(id);
-
-            if (ingrediente == null)
-            {
-                return NotFound();
-            }
-
-            // Verificar si ya existe otro ingrediente con el mismo nombre
-            var existente = await _context.Ingredientes
-                .FirstOrDefaultAsync(i => i.Nombre.ToLower() == dto.Nombre.ToLower() && i.Id != id);
-
-            if (existente != null)
-            {
-                return Conflict(new { message = "Ya existe un ingrediente con ese nombre" });
-            }
-
-            ingrediente.Nombre = dto.Nombre;
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            return BadRequest("No se puede eliminar el ingrediente porque está siendo usado en una o más comidas");
         }
 
-        // DELETE: api/Ingredientes/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteIngrediente(int id)
+        _context.Ingredientes.Remove(ingrediente);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    [AllowAnonymous]
+    [HttpPost("test")]
+    public async Task<ActionResult<IngredienteDto>> TestCreateIngrediente(CreateIngredienteDto dto)
+    {
+        // Hardcodear userId en lugar de sacarlo del token
+        var userId = 1;
+
+        var ingrediente = new Ingrediente
         {
-            var ingrediente = await _context.Ingredientes
-                .Include(i => i.ComidaIngredientes)
-                .FirstOrDefaultAsync(i => i.Id == id);
+            Nombre = dto.Nombre,
+            UsuarioId = userId
+        };
 
-            if (ingrediente == null)
-            {
-                return NotFound();
-            }
+        _context.Ingredientes.Add(ingrediente);
+        await _context.SaveChangesAsync();
 
-            // Verificar si el ingrediente está siendo usado en alguna comida
-            if (ingrediente.ComidaIngredientes.Any())
-            {
-                return BadRequest(new { message = "No se puede eliminar el ingrediente porque está siendo usado en una o más comidas" });
-            }
+        var ingredienteDto = new IngredienteDto
+        {
+            Id = ingrediente.Id,
+            Nombre = ingrediente.Nombre
+        };
 
-            _context.Ingredientes.Remove(ingrediente);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
-        }
+        return CreatedAtAction(nameof(GetIngrediente), new { id = ingrediente.Id }, ingredienteDto);
     }
 }

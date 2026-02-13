@@ -1,83 +1,90 @@
 using Microsoft.EntityFrameworkCore;
 using Comidify.API.Models;
 
-namespace Comidify.API.Data
+namespace Comidify.API.Data;
+
+public class ComidifyDbContext : DbContext
 {
-    public class ComidifyDbContext : DbContext
+    public ComidifyDbContext(DbContextOptions<ComidifyDbContext> options)
+        : base(options)
     {
-        public ComidifyDbContext(DbContextOptions<ComidifyDbContext> options)
-            : base(options)
+    }
+
+    public DbSet<Usuario> Usuarios { get; set; }
+    public DbSet<Comida> Comidas { get; set; }
+    public DbSet<Ingrediente> Ingredientes { get; set; }
+    public DbSet<ComidaIngrediente> ComidaIngredientes { get; set; }
+    public DbSet<MenuSemanal> MenusSemanales { get; set; }
+    public DbSet<MenuComida> MenuComidas { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // Usuario
+        modelBuilder.Entity<Usuario>(entity =>
         {
-        }
+            entity.HasIndex(e => e.Email).IsUnique();
+            entity.HasMany(e => e.Comidas)
+                  .WithOne(e => e.Usuario)
+                  .HasForeignKey(e => e.UsuarioId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(e => e.Ingredientes)
+                  .WithOne(e => e.Usuario)
+                  .HasForeignKey(e => e.UsuarioId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(e => e.MenusSemanales)
+                  .WithOne(e => e.Usuario)
+                  .HasForeignKey(e => e.UsuarioId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
 
-        public DbSet<Comida> Comidas { get; set; }
-        public DbSet<Ingrediente> Ingredientes { get; set; }
-        public DbSet<ComidaIngrediente> ComidaIngredientes { get; set; }
-        public DbSet<MenuSemanal> MenusSemanales { get; set; }
-        public DbSet<MenuComida> MenuComidas { get; set; }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        // Comida
+        modelBuilder.Entity<Comida>(entity =>
         {
-            base.OnModelCreating(modelBuilder);
+            entity.HasMany(e => e.Ingredientes)
+                  .WithOne(e => e.Comida)
+                  .HasForeignKey(e => e.ComidaId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
 
-            // Configuración de Comida
-            modelBuilder.Entity<Comida>(entity =>
-            {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Nombre).IsRequired().HasMaxLength(200);
-                entity.Property(e => e.TipoComida).IsRequired();
-                entity.HasIndex(e => e.Nombre);
-            });
+        // Ingrediente (sin cambios adicionales)
 
-            // Configuración de Ingrediente
-            modelBuilder.Entity<Ingrediente>(entity =>
-            {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Nombre).IsRequired().HasMaxLength(200);
-                entity.HasIndex(e => e.Nombre);
-            });
+        // ComidaIngrediente (tabla intermedia)
+        modelBuilder.Entity<ComidaIngrediente>(entity =>
+        {
+            entity.HasOne(e => e.Comida)
+                  .WithMany(e => e.Ingredientes)
+                  .HasForeignKey(e => e.ComidaId)
+                  .OnDelete(DeleteBehavior.Cascade);
 
-            // Configuración de ComidaIngrediente
-            modelBuilder.Entity<ComidaIngrediente>(entity =>
-            {
-                entity.HasKey(e => e.Id);
-                
-                entity.HasOne(e => e.Comida)
-                    .WithMany(c => c.ComidaIngredientes)
-                    .HasForeignKey(e => e.ComidaId)
-                    .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Ingrediente)
+                  .WithMany(e => e.ComidaIngredientes)
+                  .HasForeignKey(e => e.IngredienteId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
 
-                entity.HasOne(e => e.Ingrediente)
-                    .WithMany(i => i.ComidaIngredientes)
-                    .HasForeignKey(e => e.IngredienteId)
-                    .OnDelete(DeleteBehavior.Cascade);
-            });
+        // MenuSemanal
+        modelBuilder.Entity<MenuSemanal>(entity =>
+        {
+            entity.HasMany(e => e.Comidas)
+                  .WithOne(e => e.MenuSemanal)
+                  .HasForeignKey(e => e.MenuSemanalId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
 
-            // Configuración de MenuSemanal
-            modelBuilder.Entity<MenuSemanal>(entity =>
-            {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Nombre).IsRequired().HasMaxLength(200);
-            });
+        // MenuComida (tabla intermedia)
+        modelBuilder.Entity<MenuComida>(entity =>
+        {
+            entity.HasOne(e => e.MenuSemanal)
+                  .WithMany(e => e.Comidas)
+                  .HasForeignKey(e => e.MenuSemanalId)
+                  .OnDelete(DeleteBehavior.Cascade);
 
-            // Configuración de MenuComida
-            modelBuilder.Entity<MenuComida>(entity =>
-            {
-                entity.HasKey(e => e.Id);
-
-                entity.HasOne(e => e.MenuSemanal)
-                    .WithMany(m => m.MenuComidas)
-                    .HasForeignKey(e => e.MenuSemanalId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasOne(e => e.Comida)
-                    .WithMany(c => c.MenuComidas)
-                    .HasForeignKey(e => e.ComidaId)
-                    .OnDelete(DeleteBehavior.Restrict);
-
-                entity.HasIndex(e => new { e.MenuSemanalId, e.DiaSemana, e.TipoComida })
-                    .IsUnique();
-            });
-        }
+            entity.HasOne(e => e.Comida)
+                  .WithMany(e => e.MenuComidas)
+                  .HasForeignKey(e => e.ComidaId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
     }
 }

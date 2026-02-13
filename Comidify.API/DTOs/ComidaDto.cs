@@ -1,41 +1,43 @@
+using System.ComponentModel.DataAnnotations;
 using Comidify.API.Models;
 
-namespace Comidify.API.DTOs
+namespace Comidify.API.DTOs;
+
+public class ComidaDto
 {
-    public class ComidaDto
-    {
-        public int Id { get; set; }
-        public string Nombre { get; set; } = string.Empty;
-        public TipoComida TipoComida { get; set; }
-        public List<IngredienteComidaDto> Ingredientes { get; set; } = new List<IngredienteComidaDto>();
-    }
+    public int Id { get; set; }
+    public string Nombre { get; set; } = string.Empty;
+    public TipoComida TipoComida { get; set; }
+    public List<IngredienteEnComidaDto> Ingredientes { get; set; } = new();
+}
 
-    public class CreateComidaDto
-    {
-        public string Nombre { get; set; } = string.Empty;
-        public TipoComida TipoComida { get; set; }
-        public List<IngredienteComidaCreateDto> Ingredientes { get; set; } = new List<IngredienteComidaCreateDto>();
-    }
+public class CreateComidaDto
+{
+    [Required]
+    [StringLength(200)]
+    public string Nombre { get; set; } = string.Empty;
 
-    public class UpdateComidaDto
-    {
-        public string Nombre { get; set; } = string.Empty;
-        public TipoComida TipoComida { get; set; }
-        public List<IngredienteComidaCreateDto> Ingredientes { get; set; } = new List<IngredienteComidaCreateDto>();
-    }
+    [Required]
+    public TipoComida TipoComida { get; set; }
 
-    public class IngredienteComidaDto
-    {
-        public int IngredienteId { get; set; }
-        public string NombreIngrediente { get; set; } = string.Empty;
-        public string? Cantidad { get; set; }
-        public string? Unidad { get; set; }
-    }
+    public List<CreateIngredienteEnComidaDto>? Ingredientes { get; set; }
+}
 
-    public class IngredienteComidaCreateDto
-    {
-        public int IngredienteId { get; set; }
-        public string? Cantidad { get; set; }
-        public string? Unidad { get; set; }
-    }
+// NUEVO DTO
+public class IngredienteEnComidaDto
+{
+    public int IngredienteId { get; set; }
+    public string NombreIngrediente { get; set; } = string.Empty;
+    public string? Cantidad { get; set; }
+    public string? Unidad { get; set; }
+}
+
+// NUEVO DTO
+public class CreateIngredienteEnComidaDto
+{
+    [Required]
+    public int IngredienteId { get; set; }
+
+    public string? Cantidad { get; set; }
+    public string? Unidad { get; set; }
 }

@@ -1,110 +1,129 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Comidify.API.Data;
 using Comidify.API.Models;
 using Comidify.API.DTOs;
+using Comidify.API.Extensions;
 
-namespace Comidify.API.Controllers
+namespace Comidify.API.Controllers;
+
+[Authorize] // ← NUEVO: Requiere autenticación
+[ApiController]
+[Route("api/[controller]")]
+public class ComidasController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class ComidasController : ControllerBase
+    private readonly ComidifyDbContext _context;
+
+    public ComidasController(ComidifyDbContext context)
     {
-        private readonly ComidifyDbContext _context;
+        _context = context;
+    }
 
-        public ComidasController(ComidifyDbContext context)
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<ComidaDto>>> GetComidas(
+        [FromQuery] string? nombre,
+        [FromQuery] int? tipoComida)
+    {
+        var userId = User.GetUserId(); // ← NUEVO
+
+        var query = _context.Comidas
+            .Where(c => c.UsuarioId == userId) // ← NUEVO: Solo del usuario
+            .Include(c => c.Ingredientes)
+                .ThenInclude(ci => ci.Ingrediente)
+            .AsQueryable();
+
+        if (!string.IsNullOrEmpty(nombre))
         {
-            _context = context;
+            query = query.Where(c => c.Nombre.Contains(nombre));
         }
 
-        // GET: api/Comidas
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<ComidaDto>>> GetComidas(
-            [FromQuery] string? nombre = null,
-            [FromQuery] TipoComida? tipoComida = null)
+        if (tipoComida.HasValue)
         {
-            var query = _context.Comidas
-                .Include(c => c.ComidaIngredientes)
-                    .ThenInclude(ci => ci.Ingrediente)
-                .AsQueryable();
-
-            if (!string.IsNullOrWhiteSpace(nombre))
-            {
-                query = query.Where(c => c.Nombre.ToLower().Contains(nombre.ToLower()));
-            }
-
-            if (tipoComida.HasValue)
-            {
-                query = query.Where(c => c.TipoComida == tipoComida.Value);
-            }
-
-            var comidas = await query.ToListAsync();
-
-            var result = comidas.Select(c => new ComidaDto
-            {
-                Id = c.Id,
-                Nombre = c.Nombre,
-                TipoComida = c.TipoComida,
-                Ingredientes = c.ComidaIngredientes.Select(ci => new IngredienteComidaDto
-                {
-                    IngredienteId = ci.IngredienteId,
-                    NombreIngrediente = ci.Ingrediente.Nombre,
-                    Cantidad = ci.Cantidad,
-                    Unidad = ci.Unidad
-                }).ToList()
-            }).ToList();
-
-            return Ok(result);
+            query = query.Where(c => c.TipoComida == (TipoComida)tipoComida.Value);
         }
 
-        // GET: api/Comidas/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<ComidaDto>> GetComida(int id)
+        var comidas = await query.ToListAsync();
+
+        var comidasDto = comidas.Select(c => new ComidaDto
         {
-            var comida = await _context.Comidas
-                .Include(c => c.ComidaIngredientes)
-                    .ThenInclude(ci => ci.Ingrediente)
-                .FirstOrDefaultAsync(c => c.Id == id);
-
-            if (comida == null)
+            Id = c.Id,
+            Nombre = c.Nombre,
+            TipoComida = c.TipoComida,
+            Ingredientes = c.Ingredientes.Select(ci => new IngredienteEnComidaDto
             {
-                return NotFound();
-            }
+                IngredienteId = ci.IngredienteId,
+                NombreIngrediente = ci.Ingrediente.Nombre,
+                Cantidad = ci.Cantidad,
+                Unidad = ci.Unidad
+            }).ToList()
+        }).ToList();
 
-            var result = new ComidaDto
-            {
-                Id = comida.Id,
-                Nombre = comida.Nombre,
-                TipoComida = comida.TipoComida,
-                Ingredientes = comida.ComidaIngredientes.Select(ci => new IngredienteComidaDto
-                {
-                    IngredienteId = ci.IngredienteId,
-                    NombreIngrediente = ci.Ingrediente.Nombre,
-                    Cantidad = ci.Cantidad,
-                    Unidad = ci.Unidad
-                }).ToList()
-            };
+        return Ok(comidasDto);
+    }
 
-            return Ok(result);
+    [HttpGet("{id}")]
+    public async Task<ActionResult<ComidaDto>> GetComida(int id)
+    {
+        var userId = User.GetUserId(); // ← NUEVO
+
+        var comida = await _context.Comidas
+            .Where(c => c.UsuarioId == userId) // ← NUEVO
+            .Include(c => c.Ingredientes)
+                .ThenInclude(ci => ci.Ingrediente)
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (comida == null)
+        {
+            return NotFound();
         }
 
-        // POST: api/Comidas
-        [HttpPost]
-        public async Task<ActionResult<ComidaDto>> CreateComida(CreateComidaDto dto)
+        var comidaDto = new ComidaDto
         {
-            var comida = new Comida
+            Id = comida.Id,
+            Nombre = comida.Nombre,
+            TipoComida = comida.TipoComida,
+            Ingredientes = comida.Ingredientes.Select(ci => new IngredienteEnComidaDto
             {
-                Nombre = dto.Nombre,
-                TipoComida = dto.TipoComida,
-                FechaCreacion = DateTime.UtcNow
-            };
+                IngredienteId = ci.IngredienteId,
+                NombreIngrediente = ci.Ingrediente.Nombre,
+                Cantidad = ci.Cantidad,
+                Unidad = ci.Unidad
+            }).ToList()
+        };
 
-            _context.Comidas.Add(comida);
-            await _context.SaveChangesAsync();
+        return Ok(comidaDto);
+    }
 
-            // Agregar ingredientes
+    [HttpPost]
+    public async Task<ActionResult<ComidaDto>> CreateComida(CreateComidaDto dto)
+    {
+        var userId = User.GetUserId(); // ← NUEVO
+
+        var comida = new Comida
+        {
+            Nombre = dto.Nombre,
+            TipoComida = dto.TipoComida,
+            UsuarioId = userId // ← NUEVO
+        };
+
+        _context.Comidas.Add(comida);
+        await _context.SaveChangesAsync();
+
+        // Agregar ingredientes
+        if (dto.Ingredientes != null && dto.Ingredientes.Any())
+        {
             foreach (var ingredienteDto in dto.Ingredientes)
             {
+                // Verificar que el ingrediente pertenezca al usuario
+                var ingrediente = await _context.Ingredientes
+                    .FirstOrDefaultAsync(i => i.Id == ingredienteDto.IngredienteId && i.UsuarioId == userId);
+
+                if (ingrediente == null)
+                {
+                    return BadRequest($"Ingrediente {ingredienteDto.IngredienteId} no encontrado");
+                }
+
                 var comidaIngrediente = new ComidaIngrediente
                 {
                     ComidaId = comida.Id,
@@ -114,54 +133,66 @@ namespace Comidify.API.Controllers
                 };
                 _context.ComidaIngredientes.Add(comidaIngrediente);
             }
-
             await _context.SaveChangesAsync();
-
-            // Cargar la comida completa con ingredientes
-            var comidaCompleta = await _context.Comidas
-                .Include(c => c.ComidaIngredientes)
-                    .ThenInclude(ci => ci.Ingrediente)
-                .FirstOrDefaultAsync(c => c.Id == comida.Id);
-
-            var result = new ComidaDto
-            {
-                Id = comidaCompleta!.Id,
-                Nombre = comidaCompleta.Nombre,
-                TipoComida = comidaCompleta.TipoComida,
-                Ingredientes = comidaCompleta.ComidaIngredientes.Select(ci => new IngredienteComidaDto
-                {
-                    IngredienteId = ci.IngredienteId,
-                    NombreIngrediente = ci.Ingrediente.Nombre,
-                    Cantidad = ci.Cantidad,
-                    Unidad = ci.Unidad
-                }).ToList()
-            };
-
-            return CreatedAtAction(nameof(GetComida), new { id = result.Id }, result);
         }
 
-        // PUT: api/Comidas/5
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateComida(int id, UpdateComidaDto dto)
+        // Recargar con ingredientes
+        comida = await _context.Comidas
+            .Include(c => c.Ingredientes)
+                .ThenInclude(ci => ci.Ingrediente)
+            .FirstAsync(c => c.Id == comida.Id);
+
+        var comidaDto = new ComidaDto
         {
-            var comida = await _context.Comidas
-                .Include(c => c.ComidaIngredientes)
-                .FirstOrDefaultAsync(c => c.Id == id);
-
-            if (comida == null)
+            Id = comida.Id,
+            Nombre = comida.Nombre,
+            TipoComida = comida.TipoComida,
+            Ingredientes = comida.Ingredientes.Select(ci => new IngredienteEnComidaDto
             {
-                return NotFound();
-            }
+                IngredienteId = ci.IngredienteId,
+                NombreIngrediente = ci.Ingrediente.Nombre,
+                Cantidad = ci.Cantidad,
+                Unidad = ci.Unidad
+            }).ToList()
+        };
 
-            comida.Nombre = dto.Nombre;
-            comida.TipoComida = dto.TipoComida;
+        return CreatedAtAction(nameof(GetComida), new { id = comida.Id }, comidaDto);
+    }
 
-            // Eliminar ingredientes existentes
-            _context.ComidaIngredientes.RemoveRange(comida.ComidaIngredientes);
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateComida(int id, CreateComidaDto dto)
+    {
+        var userId = User.GetUserId(); // ← NUEVO
 
-            // Agregar nuevos ingredientes
+        var comida = await _context.Comidas
+            .Where(c => c.UsuarioId == userId) // ← NUEVO
+            .Include(c => c.Ingredientes)
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (comida == null)
+        {
+            return NotFound();
+        }
+
+        comida.Nombre = dto.Nombre;
+        comida.TipoComida = dto.TipoComida;
+
+        // Eliminar ingredientes existentes
+        _context.ComidaIngredientes.RemoveRange(comida.Ingredientes);
+
+        // Agregar nuevos ingredientes
+        if (dto.Ingredientes != null && dto.Ingredientes.Any())
+        {
             foreach (var ingredienteDto in dto.Ingredientes)
             {
+                var ingrediente = await _context.Ingredientes
+                    .FirstOrDefaultAsync(i => i.Id == ingredienteDto.IngredienteId && i.UsuarioId == userId);
+
+                if (ingrediente == null)
+                {
+                    return BadRequest($"Ingrediente {ingredienteDto.IngredienteId} no encontrado");
+                }
+
                 var comidaIngrediente = new ComidaIngrediente
                 {
                     ComidaId = comida.Id,
@@ -171,27 +202,30 @@ namespace Comidify.API.Controllers
                 };
                 _context.ComidaIngredientes.Add(comidaIngrediente);
             }
-
-            await _context.SaveChangesAsync();
-
-            return NoContent();
         }
 
-        // DELETE: api/Comidas/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteComida(int id)
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteComida(int id)
+    {
+        var userId = User.GetUserId(); // ← NUEVO
+
+        var comida = await _context.Comidas
+            .Where(c => c.UsuarioId == userId) // ← NUEVO
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (comida == null)
         {
-            var comida = await _context.Comidas.FindAsync(id);
-            
-            if (comida == null)
-            {
-                return NotFound();
-            }
-
-            _context.Comidas.Remove(comida);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            return NotFound();
         }
+
+        _context.Comidas.Remove(comida);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
     }
 }
