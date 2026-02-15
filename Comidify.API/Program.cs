@@ -46,7 +46,8 @@ builder.Services.AddCors(options =>
             builder.WithOrigins(
                 "http://localhost:5173",
                 "https://localhost:5173",
-                "https://nice-dune-04db8720f.2.azurestaticapps.net" // Cambia esto por tu URL de Static Web App
+                "https://nice-dune-04db8720f.2.azurestaticapps.net",
+                "https://www.comidify.com.mx" 
             )
             .AllowAnyMethod()
             .AllowAnyHeader()
